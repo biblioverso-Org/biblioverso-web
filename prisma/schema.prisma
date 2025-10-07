@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") // la conexión de Neon irá aquí
+}
+
+model rol {
+  id_rol              Int       @id @default(autoincrement())
+  nombre              String
+  descripcion         String?
+  fecha_creacion      DateTime  @default(now())
+  fecha_actualizacion DateTime  @updatedAt
+  usuarios            usuario[]
+}
+
+model usuario {
+  id_usuario          Int       @id @default(autoincrement())
+  cl_usuario          String?   @unique
+  usuario             String?   @unique
+  password            String
+  nombre              String
+  apellido            String
+  email               String    @unique
+  telefono            String?
+  direccion           String?
+  genero              String?
+  fecha_nac           DateTime?
+  nacionalidad        String?
+  biografia           String?
+  foto                String?
+  id_rol              Int
+  fecha_creacion      DateTime  @default(now())
+  fecha_actualizacion DateTime  @updatedAt
+  rol                 rol       @relation(fields: [id_rol], references: [id_rol])
+
+  @@map("usuario")
+}
