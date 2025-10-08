@@ -3,9 +3,15 @@ import { PrismaClient } from "@prisma/client"
 
 const prisma = new PrismaClient()
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+// ✅ Ahora se usa `context.params` como Promise y se hace await
+export async function GET(
+    req: Request,
+    context: { params: Promise<{ id: string }> }
+) {
     try {
-        const id_libro = Number(params.id)
+        const { id } = await context.params
+        const id_libro = Number(id)
+
         if (isNaN(id_libro)) {
             return NextResponse.json({ error: "ID inválido" }, { status: 400 })
         }
@@ -14,9 +20,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             where: { id_libro },
             include: {
                 categoria: true,
-                libro_autor: {
-                    include: { autor: true },
-                },
+                libro_autor: { include: { autor: true } },
                 stock: true,
                 opiniones: {
                     include: {
@@ -33,11 +37,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             return NextResponse.json({ error: "Libro no encontrado" }, { status: 404 })
         }
 
-        // 🔹 Calcular cantidad total de copias disponibles
+        // 🔹 Calcular stock disponible
         const totalStock = libro.stock?.filter((s) => s.disponibilidad).length ?? 0
         const disponible = totalStock > 0
 
-        // 🔹 Calcular promedio de calificaciones
+        // 🔹 Promedio de calificaciones
         const promedio =
             libro.opiniones.length > 0
                 ? libro.opiniones.reduce((acc, op) => acc + (op.calificacion || 0), 0) /
@@ -53,7 +57,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             fecha_publicacion: libro.fecha_publicacion,
             categoria: libro.categoria?.nombre ?? "Sin categoría",
             autores:
-                libro.libro_autor?.map((a) => a.autor?.nombre ?? "Autor desconocido") ?? [],
+                libro.libro_autor?.map((a) => a.autor?.nombre ?? "Autor desconocido") ??
+                [],
             disponible,
             stock: totalStock,
             rating: promedio.toFixed(1),
