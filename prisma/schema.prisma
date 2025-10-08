@@ -48,18 +48,64 @@ model categoria {
 }
 
 model libro {
-  id_libro            BigInt     @id
-  isbn                String?    @unique
+  id_libro            BigInt        @id
+  isbn                String?       @unique
   titulo              String?
   portada             String?
   sinopsis            String?
   editorial           String?
   fecha_publicacion   DateTime?
-  fecha_creacion      DateTime   @default(now())
-  fecha_actualizacion DateTime   @default(now())
-  eliminado           Boolean    @default(false)
+  fecha_creacion      DateTime      @default(now())
+  fecha_actualizacion DateTime      @default(now())
+  eliminado           Boolean       @default(false)
   id_categoria        Int?
-  categoria           categoria? @relation(fields: [id_categoria], references: [id_categoria])
+  categoria           categoria?    @relation(fields: [id_categoria], references: [id_categoria])
+  libro_autor         libro_autor[]
+  opiniones           opiniones[]
+  stock               stock[]
 
   @@map("libro")
+}
+
+model autor {
+  id_autor            Int           @id
+  nombre              String?
+  nacionalidad        String?
+  fecha_nac           DateTime?
+  fecha_muerte        DateTime?
+  biografia           String?
+  fecha_creacion      DateTime      @default(now())
+  fecha_actualizacion DateTime      @updatedAt
+  libro_autor         libro_autor[]
+}
+
+model libro_autor {
+  id_libro BigInt
+  id_autor Int
+  libro    libro  @relation(fields: [id_libro], references: [id_libro])
+  autor    autor  @relation(fields: [id_autor], references: [id_autor])
+
+  @@id([id_libro, id_autor])
+}
+
+model opiniones {
+  id_opinion          Int       @id
+  id_libro            BigInt?
+  id_usuario          Int?
+  calificacion        Int?
+  comentario          String?
+  fecha               DateTime?
+  fecha_creacion      DateTime  @default(now())
+  fecha_actualizacion DateTime  @updatedAt
+  libro               libro?    @relation(fields: [id_libro], references: [id_libro])
+}
+
+model stock {
+  id_stock       BigInt   @id
+  id_libro       BigInt
+  ubicacion      String?
+  disponibilidad Boolean?
+  estado         String?
+  situacion      String?  @default("Disponible")
+  libro          libro    @relation(fields: [id_libro], references: [id_libro])
 }
