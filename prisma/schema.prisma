@@ -17,13 +17,13 @@ model rol {
 }
 
 model usuario {
-  id_usuario          Int       @id @default(autoincrement())
-  cl_usuario          String?   @unique
-  usuario             String?   @unique
+  id_usuario          Int         @id @default(autoincrement())
+  cl_usuario          String?     @unique
+  usuario             String?     @unique
   password            String
   nombre              String
   apellido            String
-  email               String    @unique
+  email               String      @unique
   telefono            String?
   direccion           String?
   genero              String?
@@ -32,9 +32,12 @@ model usuario {
   biografia           String?
   foto                String?
   id_rol              Int
-  fecha_creacion      DateTime  @default(now())
-  fecha_actualizacion DateTime  @updatedAt
-  rol                 rol       @relation(fields: [id_rol], references: [id_rol])
+  fecha_creacion      DateTime    @default(now())
+  fecha_actualizacion DateTime    @updatedAt
+  rol                 rol         @relation(fields: [id_rol], references: [id_rol])
+  favoritos           favoritos[]
+  reserva             reserva[]
+  opiniones           opiniones[]
 
   @@map("usuario")
 }
@@ -63,6 +66,8 @@ model libro {
   libro_autor         libro_autor[]
   opiniones           opiniones[]
   stock               stock[]
+  favoritos           favoritos[]
+  reserva             reserva[]
 
   @@map("libro")
 }
@@ -89,15 +94,18 @@ model libro_autor {
 }
 
 model opiniones {
-  id_opinion          Int       @id
+  id_opinion          Int      @id @default(autoincrement())
   id_libro            BigInt?
   id_usuario          Int?
   calificacion        Int?
   comentario          String?
-  fecha               DateTime?
-  fecha_creacion      DateTime  @default(now())
-  fecha_actualizacion DateTime  @updatedAt
-  libro               libro?    @relation(fields: [id_libro], references: [id_libro])
+  fecha_creacion      DateTime @default(now())
+  fecha_actualizacion DateTime @updatedAt
+
+  libro   libro?   @relation(fields: [id_libro], references: [id_libro])
+  usuario usuario? @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@map("opiniones")
 }
 
 model stock {
@@ -108,4 +116,31 @@ model stock {
   estado         String?
   situacion      String?  @default("Disponible")
   libro          libro    @relation(fields: [id_libro], references: [id_libro])
+}
+
+model favoritos {
+  id_favorito    BigInt   @id @default(autoincrement())
+  id_usuario     Int
+  id_libro       BigInt
+  fecha_agregado DateTime @default(now())
+
+  usuario usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+  libro   libro   @relation(fields: [id_libro], references: [id_libro], onDelete: Cascade)
+
+  @@unique([id_usuario, id_libro])
+  @@map("favoritos")
+}
+
+model reserva {
+  id_reserva    BigInt   @id @default(autoincrement())
+  id_usuario    Int
+  id_libro      BigInt
+  fecha_reserva DateTime @default(now())
+  estado        String   @default("pendiente")
+  cantidad      Int      @default(1)
+
+  usuario usuario @relation(fields: [id_usuario], references: [id_usuario])
+  libro   libro   @relation(fields: [id_libro], references: [id_libro])
+
+  @@map("reserva")
 }
