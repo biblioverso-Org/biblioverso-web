@@ -38,3 +38,28 @@ model usuario {
 
   @@map("usuario")
 }
+
+model categoria {
+  id_categoria Int     @id @default(autoincrement())
+  nombre       String
+  libros       libro[]
+
+  @@map("categoria")
+}
+
+model libro {
+  id_libro            BigInt     @id
+  isbn                String?    @unique
+  titulo              String?
+  portada             String?
+  sinopsis            String?
+  editorial           String?
+  fecha_publicacion   DateTime?
+  fecha_creacion      DateTime   @default(now())
+  fecha_actualizacion DateTime   @default(now())
+  eliminado           Boolean    @default(false)
+  id_categoria        Int?
+  categoria           categoria? @relation(fields: [id_categoria], references: [id_categoria])
+
+  @@map("libro")
+}
