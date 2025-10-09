@@ -17,13 +17,13 @@ model rol {
 }
 
 model usuario {
-  id_usuario          Int         @id @default(autoincrement())
-  cl_usuario          String?     @unique
-  usuario             String?     @unique
+  id_usuario          Int            @id @default(autoincrement())
+  cl_usuario          String?        @unique
+  usuario             String?        @unique
   password            String
   nombre              String
   apellido            String
-  email               String      @unique
+  email               String         @unique
   telefono            String?
   direccion           String?
   genero              String?
@@ -32,12 +32,13 @@ model usuario {
   biografia           String?
   foto                String?
   id_rol              Int
-  fecha_creacion      DateTime    @default(now())
-  fecha_actualizacion DateTime    @updatedAt
-  rol                 rol         @relation(fields: [id_rol], references: [id_rol])
+  fecha_creacion      DateTime       @default(now())
+  fecha_actualizacion DateTime       @updatedAt
+  rol                 rol            @relation(fields: [id_rol], references: [id_rol])
   favoritos           favoritos[]
   reserva             reserva[]
   opiniones           opiniones[]
+  notificacion        notificacion[]
 
   @@map("usuario")
 }
@@ -143,4 +144,17 @@ model reserva {
   libro   libro   @relation(fields: [id_libro], references: [id_libro])
 
   @@map("reserva")
+}
+
+model notificacion {
+  id_notificacion BigInt   @id @default(autoincrement())
+  id_usuario      Int
+  titulo          String
+  mensaje         String
+  fecha           DateTime @default(now())
+  leida           Boolean  @default(false)
+
+  usuario usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+
+  @@map("notificacion")
 }

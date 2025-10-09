@@ -9,9 +9,10 @@ import {
     Calendar,
     LogOut,
     Bell,
+    CheckCircle2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { LoginDialog } from "@/components/login-dialog"
 import { SearchDialog } from "@/components/search-dialog"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -24,6 +25,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useSession, signOut } from "next-auth/react"
+import useSWR from "swr"
+import { formatDistanceToNow } from "date-fns"
+import { es } from "date-fns/locale"
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export function Header() {
     const [loginDialogOpen, setLoginDialogOpen] = useState(false)
@@ -31,6 +37,34 @@ export function Header() {
     const { data: session, status } = useSession()
 
     const isAuthenticated = status === "authenticated"
+    const id_usuario = session?.user?.id
+
+    // 🔔 Obtener notificaciones con SWR
+    const { data: notificaciones = [], mutate } = useSWR(
+        isAuthenticated ? `/api/notificaciones?id_usuario=${id_usuario}` : null,
+        fetcher,
+        { refreshInterval: 10000 } // 🔄 refresca cada 10s
+    )
+
+    // 📬 Cantidad de no leídas
+    const unreadCount = notificaciones.filter((n: any) => !n.leida).length
+
+    // ✅ Marcar todas como leídas al abrir el menú
+    const markAllAsRead = async () => {
+        const unread = notificaciones.filter((n: any) => !n.leida)
+        if (unread.length === 0) return
+
+        await Promise.all(
+            unread.map((n: any) =>
+                fetch("/api/notificaciones", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id_notificacion: n.id_notificacion, leida: true }),
+                })
+            )
+        )
+        mutate()
+    }
 
     return (
         <>
@@ -75,17 +109,75 @@ export function Header() {
 
                             <ThemeToggle />
 
-                            {/* 🔔 Notificaciones (solo si está autenticado) */}
+                            {/* 🔔 Notificaciones */}
                             {isAuthenticated && (
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="relative hover:text-primary transition-colors"
-                                >
-                                    <Bell className="h-5 w-5" />
-                                    {/* 🔴 Indicador si hay notificaciones (ejemplo visual) */}
-                                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                                </Button>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="relative hover:text-primary transition-colors"
+                                            onClick={markAllAsRead}
+                                        >
+                                            <Bell className="h-5 w-5" />
+                                            {unreadCount > 0 && (
+                                                <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" />
+                                            )}
+                                        </Button>
+                                    </DropdownMenuTrigger>
+
+                                    <DropdownMenuContent
+                                        className="w-80 p-2"
+                                        align="end"
+                                        forceMount
+                                    >
+                                        <h3 className="text-sm font-semibold px-2 pb-2 border-b">
+                                            Notificaciones
+                                        </h3>
+
+                                        <div className="max-h-80 overflow-y-auto">
+                                            {notificaciones.length > 0 ? (
+                                                notificaciones.slice(0, 8).map((n: any) => (
+                                                    <div
+                                                        key={n.id_notificacion}
+                                                        className={`px-3 py-2 rounded-md transition-all cursor-pointer ${
+                                                            n.leida
+                                                                ? "hover:bg-muted/50"
+                                                                : "bg-accent/30 hover:bg-accent/50"
+                                                        }`}
+                                                        onClick={() =>
+                                                            fetch("/api/notificaciones", {
+                                                                method: "PATCH",
+                                                                headers: { "Content-Type": "application/json" },
+                                                                body: JSON.stringify({
+                                                                    id_notificacion: n.id_notificacion,
+                                                                    leida: true,
+                                                                }),
+                                                            }).then(() => mutate())
+                                                        }
+                                                    >
+                                                        <p className="text-sm font-medium">{n.titulo}</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {n.mensaje}
+                                                        </p>
+                                                        <p className="text-[10px] text-muted-foreground mt-1">
+                                                            {formatDistanceToNow(new Date(n.fecha), {
+                                                                addSuffix: true,
+                                                                locale: es,
+                                                            })}
+                                                        </p>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="py-6 text-center text-sm text-muted-foreground">
+                                                    <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-muted-foreground/60" />
+                                                    No tienes notificaciones
+                                                </div>
+                                            )}
+                                        </div>
+
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             )}
 
                             {/* 👤 Menú de usuario */}
@@ -169,14 +261,8 @@ export function Header() {
             </header>
 
             {/* 🔸 Diálogos */}
-            <LoginDialog
-                open={loginDialogOpen}
-                onOpenChange={setLoginDialogOpen}
-            />
-            <SearchDialog
-                open={searchDialogOpen}
-                onOpenChange={setSearchDialogOpen}
-            />
+            <LoginDialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen} />
+            <SearchDialog open={searchDialogOpen} onOpenChange={setSearchDialogOpen} />
         </>
     )
 }
