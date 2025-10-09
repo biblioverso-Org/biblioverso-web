@@ -152,9 +152,6 @@ export default async function HomePage() {
                                     <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                                 </Link>
                             </Button>
-                            <Button size="lg" variant="outline" asChild className="text-lg px-8 glass-effect hover:bg-primary/5">
-                                <Link href="/login">Iniciar Sesión</Link>
-                            </Button>
                         </div>
                     </ScrollReveal>
                 </div>

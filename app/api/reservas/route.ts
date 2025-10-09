@@ -38,7 +38,6 @@ export async function POST(req: Request) {
     }
 }
 
-// (Opcional) 🔹 GET para dashboard o historial
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url)
@@ -49,19 +48,47 @@ export async function GET(req: Request) {
 
         const reservas = await prisma.reserva.findMany({
             where: { id_usuario },
-            include: { libro: true },
+            include: {
+                libro: {
+                    include: {
+                        categoria: { select: { nombre: true } },
+                        libro_autor: {
+                            include: {
+                                autor: { select: { nombre: true } },
+                            },
+                        },
+                    },
+                },
+            },
             orderBy: { fecha_reserva: "desc" },
         })
 
+        // 🔧 Serializar BigInt a Number
         const safe = reservas.map((r) => ({
-            ...r,
             id_reserva: Number(r.id_reserva),
             id_libro: Number(r.id_libro),
+            id_usuario: r.id_usuario,
+            estado: r.estado,
+            cantidad: r.cantidad,
+            fecha_reserva: r.fecha_reserva,
+            libro: {
+                id_libro: Number(r.libro.id_libro),
+                titulo: r.libro.titulo,
+                portada: r.libro.portada,
+                sinopsis: r.libro.sinopsis,
+                editorial: r.libro.editorial,
+                categoria: r.libro.categoria?.nombre ?? "Sin categoría",
+                autores:
+                    r.libro.libro_autor?.map((a) => a.autor.nombre).join(", ") ??
+                    "Autor desconocido",
+            },
         }))
 
         return NextResponse.json(safe)
     } catch (error) {
         console.error("Error al obtener reservas:", error)
         return NextResponse.json({ error: "Error al obtener reservas" }, { status: 500 })
+    } finally {
+        await prisma.$disconnect()
     }
 }

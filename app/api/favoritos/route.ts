@@ -14,23 +14,62 @@ export async function GET(req: Request) {
 
         const favoritos = await prisma.favoritos.findMany({
             where: { id_usuario },
-            include: { libro: true },
+            include: {
+                libro: {
+                    include: {
+                        categoria: { select: { nombre: true } },
+                        libro_autor: { include: { autor: { select: { nombre: true } } } },
+                        stock: { select: { disponibilidad: true } },
+                        opiniones: { select: { calificacion: true } },
+                    },
+                },
+            },
+            orderBy: { fecha_agregado: "desc" },
         })
 
-        const safe = favoritos.map((fav) => ({
-            ...fav,
-            id_favorito: Number(fav.id_favorito),
-            id_libro: Number(fav.id_libro),
-        }))
+        const data = favoritos.map((fav) => {
+            const libro = fav.libro
+            const availableStock = libro.stock.filter((s) => s.disponibilidad).length
+            const totalStock = libro.stock.length
+            const disponible = availableStock > 0
 
-        return NextResponse.json(safe)
+            const rating =
+                libro.opiniones.length > 0
+                    ? libro.opiniones.reduce((acc, op) => acc + (op.calificacion ?? 0), 0) /
+                    libro.opiniones.length
+                    : 0
+
+            return {
+                id_favorito: Number(fav.id_favorito),
+                id_libro: Number(fav.id_libro),
+                fecha_agregado: fav.fecha_agregado,
+                libro: {
+                    id: Number(libro.id_libro),
+                    titulo: libro.titulo,
+                    portada: libro.portada,
+                    sinopsis: libro.sinopsis,
+                    editorial: libro.editorial,
+                    categoria: libro.categoria?.nombre ?? "Sin categoría",
+                    autores:
+                        libro.libro_autor.map((a) => a.autor.nombre).join(", ") ||
+                        "Autor desconocido",
+                    disponible,
+                    availableStock,
+                    totalStock,
+                    rating: Number(rating.toFixed(1)),
+                },
+            }
+        })
+
+        return NextResponse.json(data)
     } catch (error) {
         console.error("Error al obtener favoritos:", error)
         return NextResponse.json({ error: "Error al obtener favoritos" }, { status: 500 })
+    } finally {
+        await prisma.$disconnect()
     }
 }
 
-// 🔹 Añadir o actualizar favorito
 export async function POST(req: Request) {
     try {
         const { id_usuario, id_libro } = await req.json()
@@ -40,13 +79,13 @@ export async function POST(req: Request) {
         const fav = await prisma.favoritos.upsert({
             where: {
                 id_usuario_id_libro: {
-                    id_usuario,
+                    id_usuario: Number(id_usuario), // ✅ Conversión explícita
                     id_libro: BigInt(id_libro),
                 },
             },
             update: {},
             create: {
-                id_usuario,
+                id_usuario: Number(id_usuario), // ✅ Conversión explícita
                 id_libro: BigInt(id_libro),
             },
         })
@@ -59,10 +98,11 @@ export async function POST(req: Request) {
     } catch (error) {
         console.error("Error al guardar favorito:", error)
         return NextResponse.json({ error: "Error al guardar favorito" }, { status: 500 })
+    } finally {
+        await prisma.$disconnect()
     }
 }
 
-// 🔹 Eliminar favorito
 export async function DELETE(req: Request) {
     try {
         const { id_usuario, id_libro } = await req.json()
@@ -72,7 +112,7 @@ export async function DELETE(req: Request) {
         await prisma.favoritos.delete({
             where: {
                 id_usuario_id_libro: {
-                    id_usuario,
+                    id_usuario: Number(id_usuario), // ✅ Conversión aquí también
                     id_libro: BigInt(id_libro),
                 },
             },
@@ -82,5 +122,7 @@ export async function DELETE(req: Request) {
     } catch (error) {
         console.error("Error al eliminar favorito:", error)
         return NextResponse.json({ error: "Error al eliminar favorito" }, { status: 500 })
+    } finally {
+        await prisma.$disconnect()
     }
 }

@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation"
 import useSWR, { mutate } from "swr"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import {
@@ -25,9 +25,13 @@ export default function BookDetailPage() {
     const router = useRouter()
     const params = useParams()
     const id_libro = Number(params.id)
-    const id_usuario = session?.user?.id
+    const id_usuario = Number(session?.user?.id)
 
     const { data: book, isLoading, error } = useSWR(`/api/libros/${id_libro}`, fetcher)
+    const { data: favoritos = [] } = useSWR(
+        id_usuario ? `/api/favoritos?id_usuario=${id_usuario}` : null,
+        fetcher
+    )
 
     const [newReview, setNewReview] = useState("")
     const [newRating, setNewRating] = useState(5)
@@ -35,7 +39,15 @@ export default function BookDetailPage() {
     const [isReserved, setIsReserved] = useState(false)
     const [selectedQty, setSelectedQty] = useState(1)
 
-    // 🔐 Verifica login antes de realizar acciones
+    // 🔹 Verifica si el libro ya está en favoritos
+    useEffect(() => {
+        if (favoritos && id_libro) {
+            const fav = favoritos.some((f: any) => f.id_libro === id_libro)
+            setIsFavorite(fav)
+        }
+    }, [favoritos, id_libro])
+
+    // 🔐 Requiere login
     const requireAuth = () => {
         if (!id_usuario) {
             router.push("/login")
@@ -44,32 +56,29 @@ export default function BookDetailPage() {
         return true
     }
 
-    if (isLoading) return <div className="p-10 text-center">Cargando libro...</div>
-    if (error || !book) return <div className="p-10 text-center text-red-500">Error al cargar libro</div>
-
     // ❤️ Favoritos
     const handleFavorite = async () => {
         if (!requireAuth()) return
-
         const method = isFavorite ? "DELETE" : "POST"
         const res = await fetch("/api/favoritos", {
             method,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id_usuario, id_libro }),
         })
-        if (res.ok) setIsFavorite(!isFavorite)
+        if (res.ok) {
+            setIsFavorite(!isFavorite)
+            mutate(`/api/favoritos?id_usuario=${id_usuario}`)
+        }
     }
 
     // 📚 Reservas
     const handleReserve = async () => {
         if (!requireAuth()) return
-
         const res = await fetch("/api/reservas", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id_usuario, id_libro, cantidad: selectedQty }),
         })
-
         if (res.ok) setIsReserved(true)
     }
 
@@ -96,6 +105,11 @@ export default function BookDetailPage() {
         }
     }
 
+    if (isLoading)
+        return <div className="p-10 text-center">Cargando libro...</div>
+    if (error || !book)
+        return <div className="p-10 text-center text-red-500">Error al cargar libro</div>
+
     return (
         <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
             <div className="container mx-auto px-4 py-8">
@@ -113,15 +127,14 @@ export default function BookDetailPage() {
                             <div className="relative aspect-[2/3] overflow-hidden">
                                 <Image
                                     src={book.portada || "/placeholder.svg"}
-                                    alt={book.titulo ? `Portada del libro ${book.titulo}` : "Portada del libro"}
+                                    alt={`Portada de ${book.titulo}`}
                                     fill
                                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                                 />
-
                             </div>
                         </Card>
 
-                        {/* 🔢 Selector de cantidad si hay stock */}
+                        {/* 🔢 Selector de cantidad */}
                         {book.disponible && (
                             <div className="flex items-center justify-between bg-muted/40 rounded-lg px-4 py-2 mb-2">
                 <span className="text-sm font-medium text-muted-foreground">
@@ -141,6 +154,7 @@ export default function BookDetailPage() {
                             </div>
                         )}
 
+                        {/* 🔘 Acciones */}
                         <div className="space-y-2">
                             <Button
                                 onClick={handleReserve}
@@ -232,9 +246,7 @@ export default function BookDetailPage() {
                                             className="mb-3"
                                             rows={4}
                                         />
-                                        <Button onClick={handleSubmitReview}>
-                                            Publicar reseña
-                                        </Button>
+                                        <Button onClick={handleSubmitReview}>Publicar reseña</Button>
                                     </div>
                                 )}
 

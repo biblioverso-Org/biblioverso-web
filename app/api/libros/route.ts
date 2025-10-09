@@ -11,7 +11,8 @@ export async function GET(request: Request) {
         const disponibilidad = searchParams.get("disponibilidad") || "all"
         const sort = searchParams.get("sort") || "title"
 
-        let libros = await prisma.libro.findMany({
+        // 🔹 Consultamos los libros
+        const libros = await prisma.libro.findMany({
             where: {
                 eliminado: false,
                 ...(q && {
@@ -29,20 +30,21 @@ export async function GET(request: Request) {
                 categoria: { select: { nombre: true } },
                 libro_autor: { include: { autor: { select: { nombre: true } } } },
                 opiniones: { select: { calificacion: true } },
-                stock: { select: { situacion: true } },
+                stock: { select: { disponibilidad: true } },
             },
         })
 
+        // 🔹 Procesamos los resultados
         const result = libros.map((libro) => {
+            const totalStock = libro.stock.length
+            const availableStock = libro.stock.filter((s) => s.disponibilidad).length
+            const available = availableStock > 0
+
             const promedio =
                 libro.opiniones.length > 0
                     ? libro.opiniones.reduce((s, o) => s + (o.calificacion ?? 0), 0) /
                     libro.opiniones.length
                     : 0
-
-            const disponible =
-                libro.stock.length > 0 &&
-                libro.stock.some((s) => s.situacion === "Disponible")
 
             return {
                 id: Number(libro.id_libro),
@@ -53,8 +55,9 @@ export async function GET(request: Request) {
                 category: libro.categoria?.nombre ?? "Sin categoría",
                 description: libro.sinopsis ?? "",
                 cover: libro.portada,
-                available: disponible,
-                stock: libro.stock.length,
+                available,
+                availableStock,
+                totalStock,
                 rating: Number(promedio.toFixed(1)),
                 publishYear: libro.fecha_publicacion
                     ? new Date(libro.fecha_publicacion).getFullYear()
@@ -62,14 +65,14 @@ export async function GET(request: Request) {
             }
         })
 
-        // Filtrado por disponibilidad
+        // 🔹 Filtro por disponibilidad
         let filtered = result
         if (disponibilidad === "available")
             filtered = filtered.filter((b) => b.available)
         else if (disponibilidad === "unavailable")
             filtered = filtered.filter((b) => !b.available)
 
-        // Ordenamiento
+        // 🔹 Ordenamiento
         filtered.sort((a, b) => {
             if (sort === "title") return a.title.localeCompare(b.title)
             if (sort === "rating") return b.rating - a.rating
@@ -84,5 +87,7 @@ export async function GET(request: Request) {
             { error: "Error al obtener libros" },
             { status: 500 },
         )
+    } finally {
+        await prisma.$disconnect()
     }
 }
